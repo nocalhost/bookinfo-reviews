@@ -4,8 +4,10 @@ COPY . /opt/src
 WORKDIR /opt/src
 
 RUN ["gradle", "build"]
-RUN ["ls", "-R"]
-FROM tomcat:jdk8-openjdk
 
-COPY --from=builder /opt/src/build/libs/src.war /usr/local/tomcat/webapps/ROOT.war
 
+FROM java:8-jdk
+
+COPY --from=builder /opt/src/build/libs/reviews-0.0.1-SNAPSHOT.jar /opt/
+
+CMD ["java", "-jar", "/opt/reviews-0.0.1-SNAPSHOT.jar"]

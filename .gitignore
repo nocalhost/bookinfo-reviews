@@ -2,3 +2,5 @@ build
 *.jar
 *.war
 *.class
+.idea
+.gradle
