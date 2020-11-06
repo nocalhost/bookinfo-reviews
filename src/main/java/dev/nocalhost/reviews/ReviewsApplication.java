@@ -5,12 +5,17 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+
 @SpringBootApplication
 @Controller
 public class ReviewsApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ReviewsApplication.class, args);
+		SpringApplication app = new SpringApplication(ReviewsApplication.class);
+		app.setDefaultProperties(Collections
+				.singletonMap("server.port", "9080"));
+		app.run(args);
 	}
 
 	private final static Boolean ratings_enabled = Boolean.valueOf(System.getenv("ENABLE_RATINGS"));
