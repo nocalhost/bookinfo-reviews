@@ -6,7 +6,7 @@ WORKDIR /opt/src
 RUN ["gradle", "build"]
 
 
-FROM java:8-jdk
+FROM openjdk:8-slim
 
 COPY --from=builder /opt/src/build/libs/reviews-0.0.1-SNAPSHOT.jar /opt/
 
