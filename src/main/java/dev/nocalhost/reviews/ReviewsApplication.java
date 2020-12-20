@@ -170,7 +170,7 @@ public class ReviewsApplication {
             JsonObject ratings = JsonParser.parseString(ratings_string).getAsJsonObject().getAsJsonObject("ratings");
             if(!ratings.isJsonNull()) {
                 starsReviewer1 = ratings.getAsJsonPrimitive("Reviewer1").getAsInt();
-                starsReviewer2 = ratings.getAsJsonPrimitive("Reviewer1").getAsInt();
+                starsReviewer2 = ratings.getAsJsonPrimitive("Reviewer2").getAsInt();
             }
         }
         return getJsonResponse(Integer.toString(productId), starsReviewer1, starsReviewer2);
