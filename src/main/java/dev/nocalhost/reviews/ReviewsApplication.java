@@ -3,20 +3,29 @@ package dev.nocalhost.reviews;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import io.jaegertracing.Configuration;
+import io.jaegertracing.internal.JaegerTracer;
+import io.opentracing.Span;
+import io.opentracing.SpanContext;
+import io.opentracing.propagation.Format;
+import io.opentracing.propagation.TextMapExtractAdapter;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.apache.http.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.*;
 
 @SpringBootApplication
 @Controller
@@ -30,6 +39,17 @@ public class ReviewsApplication {
                 .singletonMap("server.port", "9080"));
         app.run(args);
     }
+
+    @Bean
+    public static JaegerTracer getTracer() {
+        Configuration.SamplerConfiguration samplerConfig = Configuration.SamplerConfiguration.fromEnv().withType("const").withParam(1);
+        Configuration.ReporterConfiguration reporterConfig = Configuration.ReporterConfiguration.fromEnv().withLogSpans(true);
+        Configuration config = new Configuration("reviews").withSampler(samplerConfig).withReporter(reporterConfig);
+        return config.getTracer();
+    }
+
+    @Autowired
+    private JaegerTracer tracer;
 
     private final static Boolean ratings_enabled = true;
     private final static String star_color = System.getenv("STAR_COLOR") == null ? "black" : System.getenv("STAR_COLOR");
@@ -128,10 +148,19 @@ public class ReviewsApplication {
         return "{\"status\": \"Reviews is healthy\"}";
     }
 
-    private String getRatings(String productId) {
+    private String getRatings(String productId, SpanContext spanContext) {
 
         HttpGet httpGet = new HttpGet(ratings_service + "/" + productId);
         CloseableHttpClient client = HttpClients.createDefault();
+
+        // inject trace info to header
+        tracer.inject(spanContext, Format.Builtin.TEXT_MAP, new RequestCarrier(httpGet));
+        Header[] traceHeader = httpGet.getAllHeaders();
+        System.out.printf("---getRatings---");
+        for (Header header : traceHeader) {
+            System.out.println(header);
+        }
+
         String responseContent = null; // 响应内容
         CloseableHttpResponse response = null;
         try {
@@ -159,20 +188,36 @@ public class ReviewsApplication {
 
     @RequestMapping(value = "/reviews/{productId}", method = RequestMethod.GET)
     @ResponseBody
-    public String bookReviewsById(@PathVariable("productId") int productId) {
+    public String bookReviewsById(@PathVariable("productId") int productId,
+                                  HttpServletRequest request) {
+
+        Map<String, String> headers = new HashMap<>();
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String key = headerNames.nextElement();
+            String value = request.getHeader(key);
+            headers.put(key, value);
+            System.out.println("" + key + ": " + value);
+        }
+
+        // extract trace info to context
+        SpanContext spanContext = tracer.extract(Format.Builtin.TEXT_MAP, new TextMapExtractAdapter(headers));
+        Span span = tracer.buildSpan("bookReviewsById").asChildOf(spanContext).start();
+
         int starsReviewer1 = -1;
         int starsReviewer2 = -1;
 
         if (ratings_enabled) {
 
-            String ratings_string = this.getRatings(Integer.toString(productId));
+            String ratings_string = this.getRatings(Integer.toString(productId), span.context());
             System.out.println(ratings_string);
             JsonObject ratings = JsonParser.parseString(ratings_string).getAsJsonObject().getAsJsonObject("ratings");
-            if(!ratings.isJsonNull()) {
+            if (!ratings.isJsonNull()) {
                 starsReviewer1 = ratings.getAsJsonPrimitive("Reviewer1").getAsInt();
                 starsReviewer2 = ratings.getAsJsonPrimitive("Reviewer2").getAsInt();
             }
         }
+        span.finish();
         return getJsonResponse(Integer.toString(productId), starsReviewer1, starsReviewer2);
     }
 
