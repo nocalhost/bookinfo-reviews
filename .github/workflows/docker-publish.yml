@@ -46,14 +46,14 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Login Docker Registry
-        run: echo ${{ secrets.BOOKINFO_REPO_PASSWORD }} | docker login -u ${{ secrets.BOOKINFO_REPO_USERNAME }} --password-stdin codingcorp-docker.pkg.coding.net
+        run: echo ${{ secrets.BOOKINFO_REPO_PASSWORD }} | docker login -u ${{ secrets.BOOKINFO_REPO_USERNAME }} --password-stdin nocalhost-docker.pkg.coding.net
         
       - name: Build image
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
         
       - name: Push image to Docker Registry
         run: |
-          IMAGE_ID=codingcorp-docker.pkg.coding.net/nocalhost/bookinfo/$IMAGE_NAME
+          IMAGE_ID=nocalhost-docker.pkg.coding.net/nocalhost/bookinfo/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
